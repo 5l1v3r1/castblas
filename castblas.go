@@ -1,6 +1,11 @@
 package castblas
 
-import "github.com/gonum/blas"
+import (
+	"runtime"
+	"sync"
+
+	"github.com/gonum/blas"
+)
 
 // An Implementation uses a 64-bit BLAS implementation
 // except for certain level-3 operations.
@@ -25,15 +30,45 @@ func (i *Implementation) Dgemm(tA, tB blas.Transpose, m, n, k int, alpha float64
 }
 
 func downcast(in []float64) []float32 {
+	numRoutines := runtime.GOMAXPROCS(0)
+	chunkSize := len(in) / numRoutines
 	res := make([]float32, len(in))
-	for i, x := range in {
-		res[i] = float32(x)
+	var wg sync.WaitGroup
+	for i := 0; i < numRoutines; i++ {
+		wg.Add(1)
+		startIdx := i * chunkSize
+		endIdx := (i + 1) * chunkSize
+		if i == numRoutines-1 {
+			endIdx = len(in)
+		}
+		go func() {
+			for j := startIdx; j < endIdx; j++ {
+				res[j] = float32(in[j])
+			}
+			wg.Done()
+		}()
 	}
+	wg.Wait()
 	return res
 }
 
 func upcast(in []float32, out []float64) {
-	for i, x := range in {
-		out[i] = float64(x)
+	numRoutines := runtime.GOMAXPROCS(0)
+	chunkSize := len(in) / numRoutines
+	var wg sync.WaitGroup
+	for i := 0; i < numRoutines; i++ {
+		wg.Add(1)
+		startIdx := i * chunkSize
+		endIdx := (i + 1) * chunkSize
+		if i == numRoutines-1 {
+			endIdx = len(in)
+		}
+		go func() {
+			for j := startIdx; j < endIdx; j++ {
+				out[j] = float64(in[j])
+			}
+			wg.Done()
+		}()
 	}
+	wg.Wait()
 }
