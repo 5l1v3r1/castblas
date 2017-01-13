@@ -13,7 +13,12 @@ func (i *Implementation) Dgemm(tA, tB blas.Transpose, m, n, k int, alpha float64
 	lda int, b []float64, ldb int, beta float64, c []float64, ldc int) {
 	a32 := downcast(a)
 	b32 := downcast(b)
-	c32 := downcast(c)
+	var c32 []float32
+	if beta != 0 {
+		c32 = downcast(c)
+	} else {
+		c32 = make([]float32, len(c))
+	}
 	i.DownCast.Sgemm(tA, tB, m, n, k, float32(alpha), a32, lda, b32, ldb, float32(beta),
 		c32, ldc)
 	upcast(c32, c)
